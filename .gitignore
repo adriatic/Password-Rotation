@@ -1,0 +1,5 @@
+# ignore generated credentials and logs
+creds/
+logs/
+# ignore credential output in script
+script/*.cred
