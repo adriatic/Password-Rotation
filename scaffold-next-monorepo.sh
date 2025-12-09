@@ -1,364 +1,155 @@
-#!/bin/zsh
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e
+# ------------------------------------------------------------------------------
+# scaffold-next-monorepo.sh
+#
+# Run this from the root of your repo (e.g. Password-Rotation/)
+# It will create:
+#   - package.json (if missing) with workspaces: apps/web, apps/api
+#   - turbo.json
+#   - tsconfig.json
+#   - apps/web  (Next.js app: TS, Tailwind, ESLint, src/, @/*, App Router)
+#   - apps/api  (Next.js app: TS, ESLint, src/, @/*, App Router, no Tailwind)
+# ------------------------------------------------------------------------------
 
-echo "🚀 Setting up Next.js Monorepo inside EXISTING Git repo..."
+ROOT_DIR="$(pwd)"
+APPS_DIR="$ROOT_DIR/apps"
+WEB_DIR="$APPS_DIR/web"
+API_DIR="$APPS_DIR/api"
 
-#############################################
-# SAFETY CHECKS
-#############################################
+echo "🧱 Root directory: $ROOT_DIR"
 
-if [ ! -d ".git" ]; then
-  echo "❌ ERROR: This directory is not a Git repository."
-  echo "Run this script INSIDE your existing Password-Rotation repo."
+# ------------------------------------------------------------------------------
+# 1. Check for node & npm
+# ------------------------------------------------------------------------------
+if ! command -v node >/dev/null 2>&1; then
+  echo "❌ node is not installed or not on PATH."
+  echo "   Please install Node 20 via nvm (e.g. nvm install 20) and try again."
   exit 1
 fi
 
-if [ -n "$(git status --porcelain)" ]; then
-  echo "⚠️  WARNING: You have uncommitted changes."
-  echo "It is recommended to commit or stash before running this script."
-  read -q "REPLY?Continue anyway? (y/n) "
-  echo
-  if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
-    exit 1
-  fi
-fi
-
-echo "✔ Git repo detected. Remote stays untouched."
-
-#############################################
-# CREATE ROOT WORKSPACES
-#############################################
-
-echo "📁 Creating workspace folders (apps/, packages/, backend/)..."
-
-mkdir -p apps
-mkdir -p packages
-mkdir -p backend
-
-#############################################
-# ROOT CONFIGURATION FILES
-#############################################
-
-echo "📝 Creating root-level package.json, tsconfig.json, Tailwind preset..."
-
-cat << 'EOF' > package.json
-{
-  "name": "password-rotation-monorepo",
-  "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "backend/*"
-  ],
-  "scripts": {
-    "build": "npm run build:packages && npm run build:apps",
-    "build:packages": "npm -w @password-rotation/ui run build && npm -w @password-rotation/auth run build && npm -w @password-rotation/api run build",
-    "build:apps": "npm -w web run build"
-  }
-}
-EOF
-
-cat << 'EOF' > tsconfig.json
-{
-  "compilerOptions": {
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "strict": true,
-    "jsx": "preserve"
-  }
-}
-EOF
-
-cat << 'EOF' > tailwind.workspace.preset.js
-module.exports = {
-  theme: { extend: {} },
-  plugins: []
-};
-EOF
-
-#############################################
-# CREATE NEXT.JS APP
-#############################################
-
-echo "🌐 Creating Next.js app inside apps/web ..."
-
-cd apps
-
-# Only continue if web/ does NOT already exist
-if [ -d "web" ]; then
-  echo "❌ ERROR: apps/web already exists. Remove it or rename it before running this script."
+if ! command -v npm >/dev/null 2>&1; then
+  echo "❌ npm is not installed or not on PATH."
   exit 1
 fi
 
-npm create next-app@latest web --typescript --eslint --app --tailwind --src-dir --no-import-alias
+NODE_VERSION="$(node -v)"
+echo "✅ Using Node ${NODE_VERSION}"
 
-cd web
+# NOTE: We trust you've set up nvm to use Node >= 20.9.0
 
-echo "🛠 Adjusting Tailwind config for monorepo..."
+# ------------------------------------------------------------------------------
+# 2. Ensure apps/ and subfolders exist before modifying workspaces
+# ------------------------------------------------------------------------------
+echo "📁 Ensuring workspace folder structure exists..."
 
-cat << 'EOF' > tailwind.config.js
-const preset = require('../../../tailwind.workspace.preset');
+mkdir -p "$APPS_DIR"
+mkdir -p "$WEB_DIR"
+mkdir -p "$API_DIR"
 
-module.exports = {
-  content: [
-    "./app/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "../../../packages/ui/src/**/*.{ts,tsx}"
-  ],
-  presets: [preset],
-};
-EOF
+# We don't care if they are empty — they MUST exist before npm sees them.
+echo "   - Created apps/, apps/web/, apps/api/ (if missing)"
 
-#############################################
-# CREATE APP ROUTES
-#############################################
 
-echo "🧩 Creating sample routes..."
+# ------------------------------------------------------------------------------
+# 3. Ensure root package.json exists before workspace config
+# ------------------------------------------------------------------------------
+if [ ! -f "$ROOT_DIR/package.json" ]; then
+  echo "📦 No package.json found at repo root. Initializing..."
+  npm init -y
+else
+  echo "📦 Root package.json already exists."
+fi
 
-cat << 'EOF' > app/layout.tsx
-import "../styles/globals.css";
-import { AuthProvider } from "@password-rotation/auth/auth-provider";
+npm pkg set private=true
 
-export const metadata = {
-  title: "Password Rotation UI",
-  description: "Dashboard for automated password rotation"
-};
 
-export default function RootLayout({ children }) {
-  return (
-    <html lang="en">
-      <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
-EOF
+# ------------------------------------------------------------------------------
+# 4. Configure npm workspaces (no warnings because folders now exist)
+# ------------------------------------------------------------------------------
+echo "🧩 Configuring npm workspaces for apps/web and apps/api ..."
 
-cat << 'EOF' > app/page.tsx
-import Link from "next/link";
+npm pkg set "workspaces[0]"="apps/web"
+npm pkg set "workspaces[1]"="apps/api"
 
-export default function Home() {
-  return (
-    <main className="flex flex-col items-center mt-20">
-      <h1 className="text-4xl font-bold mb-4">Password Rotation UI</h1>
-      <Link href="/dashboard" className="text-blue-600 underline">
-        Go to Dashboard →
-      </Link>
-    </main>
-  );
-}
-EOF
 
-mkdir -p app/dashboard
-cat << 'EOF' > app/dashboard/page.tsx
-"use client";
+# ------------------------------------------------------------------------------
+# 5. Install Turbo & create turbo.json
+# ------------------------------------------------------------------------------
+if [ ! -f "$ROOT_DIR/turbo.json" ]; then
+  echo "🚀 Installing Turbo and creating turbo.json ..."
+  npm install --save-dev turbo
 
-import { useAuth } from "@password-rotation/auth/use-auth";
-import { Card } from "@password-rotation/ui/Card";
-
-export default function Dashboard() {
-  const { user } = useAuth();
-
-  return (
-    <div className="p-10">
-      <Card>
-        <h2 className="text-xl font-bold mb-4">Dashboard</h2>
-        {user ? (
-          <p>Welcome, {user.email}</p>
-        ) : (
-          <p>You are not logged in.</p>
-        )}
-      </Card>
-    </div>
-  );
-}
-EOF
-
-mkdir -p app/login
-cat << 'EOF' > app/login/page.tsx
-"use client";
-
-import { useAuth } from "@password-rotation/auth/use-auth";
-import { Button } from "@password-rotation/ui/Button";
-
-export default function Login() {
-  const { login } = useAuth();
-  return (
-    <main className="flex flex-col mt-20 items-center">
-      <Button onClick={() => login("test@example.com", "password")}>
-        Fake Login
-      </Button>
-    </main>
-  );
-}
-EOF
-
-mkdir -p app/api/rotate
-cat << 'EOF' > app/api/rotate/route.ts
-import { NextResponse } from "next/server";
-
-export async function POST() {
-  return NextResponse.json({ status: "Rotation triggered" });
-}
-EOF
-
-cd ../..
-
-#############################################
-# SHARED PACKAGES
-#############################################
-
-echo "📦 Creating shared packages (ui, auth, api)..."
-
-mkdir -p packages/ui/src
-mkdir -p packages/auth/src
-mkdir -p packages/api/src
-
-#############################################
-# UI PACKAGE
-#############################################
-
-cat << 'EOF' > packages/ui/package.json
+  cat > "$ROOT_DIR/turbo.json" << 'EOF'
 {
-  "name": "@password-rotation/ui",
-  "version": "0.1.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts"
+  "$schema": "https://turbo.build/schema.json",
+  "pipeline": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false
+    },
+    "lint": {
+      "outputs": []
+    }
+  }
 }
 EOF
+else
+  echo "🚀 turbo.json already exists. Skipping creation."
+fi
 
-cat << 'EOF' > packages/ui/src/index.ts
-export * from "./Button";
-export * from "./Card";
-export * from "./Input";
-EOF
 
-cat << 'EOF' > packages/ui/src/Button.tsx
-export function Button({ children, ...props }) {
-  return (
-    <button
-      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-EOF
-
-cat << 'EOF' > packages/ui/src/Card.tsx
-export function Card({ children }) {
-  return (
-    <div className="p-4 border rounded-xl bg-white shadow">
-      {children}
-    </div>
-  );
-}
-EOF
-
-cat << 'EOF' > packages/ui/src/Input.tsx
-export function Input(props) {
-  return (
-    <input
-      className="border rounded px-3 py-2 w-full"
-      {...props}
-    />
-  );
-}
-EOF
-
-#############################################
-# AUTH PACKAGE
-#############################################
-
-cat << 'EOF' > packages/auth/package.json
+# ------------------------------------------------------------------------------
+# 6. Create root tsconfig.json only if missing
+# ------------------------------------------------------------------------------
+if [ ! -f "$ROOT_DIR/tsconfig.json" ]; then
+  echo "🧠 Creating root tsconfig.json with project references ..."
+  cat > "$ROOT_DIR/tsconfig.json" << 'EOF'
 {
-  "name": "@password-rotation/auth",
-  "version": "0.1.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts"
+  "files": [],
+  "references": [
+    { "path": "apps/web" },
+    { "path": "apps/api" }
+  ]
 }
 EOF
+else
+  echo "🧠 tsconfig.json already exists. Leaving as-is."
+fi
 
-cat << 'EOF' > packages/auth/src/index.ts
-export * from "./auth-provider";
-export * from "./use-auth";
-export * from "./roles";
-EOF
 
-cat << 'EOF' > packages/auth/src/auth-provider.tsx
-"use client";
+# ------------------------------------------------------------------------------
+# 7. Create apps/web only if empty
+# ------------------------------------------------------------------------------
+if [ -z "$(ls -A "$WEB_DIR")" ]; then
+  echo "🌐 Creating Next.js app in apps/web ..."
+  npx create-next-app@latest "apps/web" \
+    --ts \
+    --tailwind \
+    --eslint \
+    --src-dir \
+    --import-alias "@/*" \
+    --app
+else
+  echo "🌐 apps/web already exists and is not empty — skipping scaffold."
+fi
 
-import { createContext, useContext, useState } from "react";
 
-const AuthContext = createContext(null);
-
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-
-  const login = (email: string) => setUser({ email });
-  const logout = () => setUser(null);
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export const useAuth = () => useContext(AuthContext);
-EOF
-
-cat << 'EOF' > packages/auth/src/roles.ts
-export const Roles = {
-  USER: "user",
-  ADMIN: "admin"
-};
-EOF
-
-#############################################
-# API PACKAGE
-#############################################
-
-cat << 'EOF' > packages/api/package.json
-{
-  "name": "@password-rotation/api",
-  "version": "0.1.0",
-  "main": "src/index.ts",
-  "types": "src/index.ts"
-}
-EOF
-
-cat << 'EOF' > packages/api/src/index.ts
-export * from "./rotate";
-EOF
-
-cat << 'EOF' > packages/api/src/rotate.ts
-export async function rotateNow() {
-  const res = await fetch("/api/rotate", { method: "POST" });
-  return res.json();
-}
-EOF
-
-#############################################
-# INSTALL
-#############################################
-
-echo "📦 Installing project dependencies..."
-npm install
-
-echo ""
-echo "✨ Monorepo successfully scaffolded INSIDE your existing Git repo!"
-echo "👉 You may now commit all scaffolded files:"
-echo ""
-echo "   git add ."
-echo "   git commit -m \"Scaffold Next.js monorepo structure\""
-echo "   git push"
-echo ""
-echo "Run the app with:"
-echo "   npm --workspace web run dev"
-echo ""
+# ------------------------------------------------------------------------------
+# 8. Create apps/api only if empty
+# ------------------------------------------------------------------------------
+if [ -z "$(ls -A "$API_DIR")" ]; then
+  echo "🔌 Creating Next.js app in apps/api ..."
+  npx create-next-app@latest "apps/api" \
+    --ts \
+    --eslint \
+    --src-dir \
+    --import-alias "@/*" \
+    --app
+else
+  echo "🔌 apps/api already exists and is not empty — skipping scaffold."
+fi
