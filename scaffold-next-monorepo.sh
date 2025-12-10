@@ -2,17 +2,70 @@
 
 set -e
 
-echo "🚀 Setting up Next.js Monorepo inside EXISTING Git repo..."
+############################################################
+# NODE.JS AUTO-DETECTION AND PATH REPAIR
+############################################################
 
-#############################################
-# SAFETY CHECKS
-#############################################
+echo "🔍 Checking Node.js environment..."
+
+# 1. Try standard PATH
+if command -v node >/dev/null 2>&1; then
+  echo "✔ Node detected: $(node -v)"
+else
+  echo "⚠️ Node not found in PATH. Attempting recovery..."
+
+  # 2. Try Homebrew Node
+  if [ -x "/opt/homebrew/bin/node" ]; then
+    export PATH="/opt/homebrew/bin:$PATH"
+    echo "✔ Loaded Homebrew Node: $(node -v)"
+  else
+    echo "ℹ️ Homebrew Node not found."
+  fi
+
+  # 3. Try loading nvm
+  export NVM_DIR="$HOME/.nvm"
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    echo "🔁 Loading nvm..."
+    . "$NVM_DIR/nvm.sh"
+
+    if command -v node >/dev/null 2>&1; then
+      echo "✔ Node detected via nvm: $(node -v)"
+    else
+      echo "⚠️ nvm loaded, but node still not found."
+    fi
+  else
+    echo "ℹ️ nvm is not installed or cannot be located."
+  fi
+fi
+
+# Final check
+if ! command -v node >/dev/null 2>&1; then
+  echo ""
+  echo "❌ ERROR: Node.js is not installed or not accessible."
+  echo "Please install Node before running this script:"
+  echo ""
+  echo "   Homebrew: brew install node"
+  echo "   or NVM:   brew install nvm; nvm install --lts"
+  echo ""
+  exit 1
+fi
+
+echo "✔ Node environment OK"
+echo ""
+
+
+############################################################
+# VERIFY GIT REPO
+############################################################
+
+echo "🚀 Setting up Next.js Monorepo inside EXISTING Git repo..."
 
 if [ ! -d ".git" ]; then
   echo "❌ ERROR: This directory is not a Git repository."
-  echo "Run this script INSIDE your existing Password-Rotation repo."
   exit 1
 fi
+
+echo "✔ Git repo detected. Remote stays untouched."
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "⚠️  WARNING: You have uncommitted changes."
@@ -24,11 +77,9 @@ if [ -n "$(git status --porcelain)" ]; then
   fi
 fi
 
-echo "✔ Git repo detected. Remote stays untouched."
-
-#############################################
+############################################################
 # CREATE ROOT WORKSPACES
-#############################################
+############################################################
 
 echo "📁 Creating workspace folders (apps/, packages/, backend/)..."
 
@@ -36,9 +87,10 @@ mkdir -p apps
 mkdir -p packages
 mkdir -p backend
 
-#############################################
+
+############################################################
 # ROOT CONFIGURATION FILES
-#############################################
+############################################################
 
 echo "📝 Creating root-level package.json, tsconfig.json, Tailwind preset..."
 
@@ -77,17 +129,17 @@ module.exports = {
 };
 EOF
 
-#############################################
+
+############################################################
 # CREATE NEXT.JS APP
-#############################################
+############################################################
 
 echo "🌐 Creating Next.js app inside apps/web ..."
 
 cd apps
 
-# Only continue if web/ does NOT already exist
 if [ -d "web" ]; then
-  echo "❌ ERROR: apps/web already exists. Remove it or rename it before running this script."
+  echo "❌ ERROR: apps/web already exists. Remove or rename it first."
   exit 1
 fi
 
@@ -110,11 +162,10 @@ module.exports = {
 };
 EOF
 
-#############################################
-# CREATE APP ROUTES
-#############################################
 
-echo "🧩 Creating sample routes..."
+############################################################
+# CREATE APP ROUTES
+############################################################
 
 cat << 'EOF' > app/layout.tsx
 import "../styles/globals.css";
@@ -208,9 +259,10 @@ EOF
 
 cd ../..
 
-#############################################
+
+############################################################
 # SHARED PACKAGES
-#############################################
+############################################################
 
 echo "📦 Creating shared packages (ui, auth, api)..."
 
@@ -218,9 +270,10 @@ mkdir -p packages/ui/src
 mkdir -p packages/auth/src
 mkdir -p packages/api/src
 
-#############################################
+
+############################################################
 # UI PACKAGE
-#############################################
+############################################################
 
 cat << 'EOF' > packages/ui/package.json
 {
@@ -271,9 +324,10 @@ export function Input(props) {
 }
 EOF
 
-#############################################
+
+############################################################
 # AUTH PACKAGE
-#############################################
+############################################################
 
 cat << 'EOF' > packages/auth/package.json
 {
@@ -320,9 +374,10 @@ export const Roles = {
 };
 EOF
 
-#############################################
+
+############################################################
 # API PACKAGE
-#############################################
+############################################################
 
 cat << 'EOF' > packages/api/package.json
 {
@@ -344,21 +399,24 @@ export async function rotateNow() {
 }
 EOF
 
-#############################################
-# INSTALL
-#############################################
+
+############################################################
+# INSTALL DEPENDENCIES
+############################################################
 
 echo "📦 Installing project dependencies..."
 npm install
 
 echo ""
 echo "✨ Monorepo successfully scaffolded INSIDE your existing Git repo!"
+echo ""
 echo "👉 You may now commit all scaffolded files:"
 echo ""
 echo "   git add ."
 echo "   git commit -m \"Scaffold Next.js monorepo structure\""
 echo "   git push"
 echo ""
-echo "Run the app with:"
+echo "👉 Run the Next.js app with:"
+echo ""
 echo "   npm --workspace web run dev"
 echo ""

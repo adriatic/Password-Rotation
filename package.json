@@ -1,0 +1,14 @@
+{
+  "name": "password-rotation-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "backend/*"
+  ],
+  "scripts": {
+    "build": "npm run build:packages && npm run build:apps",
+    "build:packages": "npm -w @password-rotation/ui run build && npm -w @password-rotation/auth run build && npm -w @password-rotation/api run build",
+    "build:apps": "npm -w web run build"
+  }
+}
