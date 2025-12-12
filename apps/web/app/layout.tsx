@@ -1,19 +1,15 @@
+import type { Metadata } from "next";
 import "./globals.css";
-import { AuthProvider } from "@password-rotation/auth";
 
-export const metadata = {
-  title: "Password Rotation UI",
-  description: "Dashboard for automated password rotation"
+export const metadata: Metadata = {
+  title: "Prototype B1",
+  description: "ChatGPT Clone – Redwood/Next | Prototype B1",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
