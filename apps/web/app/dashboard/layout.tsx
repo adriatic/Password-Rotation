@@ -1,8 +1,13 @@
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+"use client";
+
+import type { ReactNode } from "react";
+import { Providers } from "../providers";
+import { Protected } from "../protect";
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <section style={{ padding: "2rem" }}>
-      <h1>Dashboard</h1>
-      {children}
-    </section>
+    <Providers>
+      <Protected>{children}</Protected>
+    </Providers>
   );
 }

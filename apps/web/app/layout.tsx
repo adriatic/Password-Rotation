@@ -1,15 +1,16 @@
-import type { Metadata } from "next";
 import "./globals.css";
+import type { ReactNode } from "react";
 
-export const metadata: Metadata = {
-  title: "Prototype B1",
-  description: "ChatGPT Clone – Redwood/Next | Prototype B1",
+export const metadata = {
+  title: "Password Rotation App",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="bg-gray-100">
+        {children}
+      </body>
     </html>
   );
 }

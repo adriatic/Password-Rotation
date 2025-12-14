@@ -1,11 +1,11 @@
-/* Basic global styles for Prototype B1 */
-html, body {
+/* Global styles for Password Rotation App */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
   margin: 0;
   padding: 0;
-  background: #fafafa;
-  font-family: system-ui, sans-serif;
 }
 
-main {
-  padding: 2rem;
-}
