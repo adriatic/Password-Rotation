@@ -2,82 +2,83 @@
 
 import { useState } from "react";
 import { useAuth } from "@password-rotation/auth";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, Input, Card } from "@password-rotation/ui";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
-  // ✔ Hooks always run
-  const auth = useAuth();
-  const signup = auth?.signup;
+  const { signup } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
 
-  const handleSignup = () => {
-    if (!signup) return; // AuthProvider not ready
-
-    if (password !== confirm) {
-      setError("Passwords do not match");
-      return;
-    }
+  const handleSignup = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
 
     try {
       signup(email, password);
       router.push("/dashboard");
-    } catch (err) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Unknown error occurred";
+      setError(message);
     }
   };
 
-  // ✔ Conditional rendering AFTER hooks
-  if (!auth) {
-    return <div className="p-10 text-gray-500">Loading...</div>;
-  }
-
   return (
     <div className="flex items-center justify-center h-screen">
-      <Card className="p-6 w-96">
-        <h1 className="text-xl font-bold mb-4">Create Account</h1>
+      <div className="border p-6 rounded-lg shadow-md w-96 bg-white">
+        <h1 className="text-xl font-bold mb-4 text-center">Sign Up</h1>
 
-        {error && <p className="text-red-600">{error}</p>}
+        <form onSubmit={handleSignup} className="flex flex-col">
+          <input
+            type="email"
+            placeholder="Email"
+            className="border p-2 mb-3"
+            value={email}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setEmail(e.target.value)
+            }
+            required
+          />
 
-        <Input
-          placeholder="Email"
-          className="mb-3"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+          <input
+            type="password"
+            placeholder="Password"
+            className="border p-2 mb-3"
+            value={password}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setPassword(e.target.value)
+            }
+            required
+          />
 
-        <Input
-          placeholder="Password"
-          type="password"
-          className="mb-3"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          {error && (
+            <p className="text-red-600 text-sm mb-3 text-center">{error}</p>
+          )}
 
-        <Input
-          placeholder="Confirm Password"
-          type="password"
-          className="mb-3"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
+          <button
+            type="submit"
+            className="bg-gray-200 hover:bg-gray-300 p-2 rounded"
+          >
+            Sign Up
+          </button>
+        </form>
 
-        <Button className="w-full" onClick={handleSignup}>
-          Sign Up
-        </Button>
-
-        <div className="text-sm mt-4 text-right">
-          <Link href="/login" className="text-blue-600">
-            Back to Login
+        <div className="flex justify-between mt-4 text-sm">
+          <Link href="/login" className="text-blue-600 hover:underline">
+            Login
+          </Link>
+          <Link
+            href="/forgot-password"
+            className="text-blue-600 hover:underline"
+          >
+            Forgot Password?
           </Link>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

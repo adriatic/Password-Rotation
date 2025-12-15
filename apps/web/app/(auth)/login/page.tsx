@@ -1,63 +1,81 @@
 "use client";
 
-import { useState } from "react";
 import { useAuth } from "@password-rotation/auth";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button, Input, Card } from "@password-rotation/ui";
 
 export default function LoginPage() {
-  const auth = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
-
-  // AuthProvider not ready yet
-  if (!auth) return null;
-
-  const { login } = auth;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
+    setError(null);
+    setLoading(true);
+
     try {
-      login(email, password);
+      login(email.trim(), password);
       router.push("/dashboard");
-    } catch (err) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Unknown error occurred");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center h-screen">
-      <Card className="p-6 w-96">
-        <h1 className="text-xl font-bold mb-4">Login</h1>
+    <main className="flex flex-col items-center mt-32 space-y-6">
+      <h1 className="text-3xl font-bold">Login</h1>
 
-        {error && <p className="text-red-500">{error}</p>}
-
-        <Input
+      <div className="flex flex-col space-y-4 w-80">
+        <input
+          type="email"
           placeholder="Email"
-          className="mb-3"
+          className="border p-2 rounded"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setEmail(e.target.value)
+          }
         />
-        <Input
-          placeholder="Password"
-          className="mb-3"
+
+        <input
           type="password"
+          placeholder="Password"
+          className="border p-2 rounded"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setPassword(e.target.value)
+          }
         />
 
-        <Button className="w-full" onClick={handleLogin}>Login</Button>
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        <div className="flex justify-between mt-4">
-          <Link href="/signup" className="text-blue-600">Sign Up</Link>
-          <Link href="/forgot-password" className="text-blue-600">
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="bg-black text-white p-2 rounded disabled:opacity-50"
+        >
+          {loading ? "Logging in…" : "Login"}
+        </button>
+
+        <div className="flex justify-between text-sm mt-2 w-full">
+          <Link href="/signup" className="underline">
+            Sign Up
+          </Link>
+          <Link href="/forgot-password" className="underline">
             Forgot Password?
           </Link>
         </div>
-      </Card>
-    </div>
+      </div>
+    </main>
   );
 }
