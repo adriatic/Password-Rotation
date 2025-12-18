@@ -1,79 +1,85 @@
 "use client";
 
-import { useAuth } from "@password-rotation/auth";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 export default function LoginPage() {
-  const { login } = useAuth();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = () => {
-    setError(null);
-    setLoading(true);
+  
+  async function handleLogin() {
+  setError("");
 
-    try {
-      login(email.trim(), password);
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unknown error occurred");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json();
+    setError(data.error ?? "Login failed");
+    return;
+  }
+
+  router.push("/dashboard");
+}
+
 
   return (
-    <main className="flex flex-col items-center mt-32 space-y-6">
-      <h1 className="text-3xl font-bold">Login</h1>
+    <main className="flex items-center justify-center min-h-screen p-6">
+      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow">
+        <h1 className="text-xl font-semibold mb-4">Log in</h1>
 
-      <div className="flex flex-col space-y-4 w-80">
-        <input
-          type="email"
-          placeholder="Email"
-          className="border p-2 rounded"
-          value={email}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setEmail(e.target.value)
-          }
-        />
+        <label className="block mb-3">
+          <span className="block text-sm mb-1">Email</span>
+          <input
+            className="w-full rounded border px-3 py-2"
+            value={email}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setEmail(e.target.value)
+            }
+            autoComplete="email"
+          />
+        </label>
 
-        <input
-          type="password"
-          placeholder="Password"
-          className="border p-2 rounded"
-          value={password}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setPassword(e.target.value)
-          }
-        />
+        <label className="block mb-4">
+          <span className="block text-sm mb-1">Password</span>
+          <input
+            className="w-full rounded border px-3 py-2"
+            type="password"
+            value={password}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setPassword(e.target.value)
+            }
+            autoComplete="current-password"
+          />
+        </label>
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error ? (
+          <p className="text-sm mb-3" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         <button
+          className="w-full rounded bg-black px-4 py-2 text-white"
           onClick={handleLogin}
-          disabled={loading}
-          className="bg-black text-white p-2 rounded disabled:opacity-50"
         >
-          {loading ? "Logging in…" : "Login"}
+          Log in
         </button>
 
-        <div className="flex justify-between text-sm mt-2 w-full">
-          <Link href="/signup" className="underline">
-            Sign Up
-          </Link>
-          <Link href="/forgot-password" className="underline">
-            Forgot Password?
-          </Link>
+        <div className="mt-4 flex justify-between text-sm">
+          <a className="underline" href="/signup">
+            Sign up
+          </a>
+          <a className="underline" href="/forgot-password">
+            Forgot password?
+          </a>
         </div>
       </div>
     </main>

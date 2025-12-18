@@ -1,9 +1,19 @@
 "use client";
 
+import { useLogout } from "../hooks/useLogout";
+
 export default function DashboardHome() {
+  const logout = useLogout();
+
   return (
-    <main>
-      <p>Welcome to the Dashboard (Prototype B1)</p>
+    <main className="p-6">
+      <p className="mb-4">Welcome to the Dashboard</p>
+      <button
+        className="rounded bg-black px-4 py-2 text-white"
+        onClick={logout}
+      >
+        Log out
+      </button>
     </main>
   );
 }
